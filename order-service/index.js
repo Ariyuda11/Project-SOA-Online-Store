@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const amqp = require('amqplib');
 
 const app = express();
 app.use(cors());
@@ -9,6 +10,29 @@ app.use(express.json());
 const PORT = 3003;
 
 let orders = [];
+
+async function sendOrderToQueue(order) {
+  try {
+    const connection = await amqp.connect('amqp://rabbitmq');
+    const channel = await connection.createChannel();
+
+    const queue = 'order_queue';
+
+    await channel.assertQueue(queue, {
+      durable: false
+    });
+
+    channel.sendToQueue(queue, Buffer.from(JSON.stringify(order)));
+
+    console.log('Order sent to RabbitMQ:', order);
+
+    setTimeout(() => {
+      connection.close();
+    }, 500);
+  } catch (error) {
+    console.log('RabbitMQ error:', error.message);
+  }
+}
 
 // GET semua order
 app.get('/orders', (req, res) => {
@@ -44,20 +68,20 @@ app.post('/orders', async (req, res) => {
       });
     }
 
-    // cek user ke User Service
+    // Jika jalan di Docker, gunakan nama service:
+    // user-service dan product-service
     let userResponse;
     try {
-      userResponse = await axios.get(`http://localhost:3001/users/${userId}`);
+      userResponse = await axios.get(`http://user-service:3001/users/${userId}`);
     } catch (err) {
       return res.status(404).json({
         message: 'User not found or User Service unavailable'
       });
     }
 
-    // cek product ke Product Service
     let productResponse;
     try {
-      productResponse = await axios.get(`http://localhost:3002/products/${productId}`);
+      productResponse = await axios.get(`http://product-service:3002/products/${productId}`);
     } catch (err) {
       return res.status(404).json({
         message: 'Product not found or Product Service unavailable'
@@ -82,6 +106,9 @@ app.post('/orders', async (req, res) => {
     };
 
     orders.push(newOrder);
+
+    // Kirim order ke RabbitMQ secara asynchronous
+    await sendOrderToQueue(newOrder);
 
     res.status(201).json(newOrder);
   } catch (error) {
