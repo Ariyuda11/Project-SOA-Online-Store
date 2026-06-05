@@ -20,11 +20,52 @@ services:
 
   notification-service:
     build: ./notification-service
+    ports:
+      - "3004:3004"
     depends_on:
       - rabbitmq
+
+  graphql-service:
+    build: ./graphql-service
+    ports:
+      - "4000:4000"
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
 
   rabbitmq:
     image: rabbitmq:3-management
     ports:
       - "5672:5672"
       - "15672:15672"
+
+  postgres:
+    image: postgres:15
+    container_name: online-store-postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: online_store_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  hasura:
+    image: hasura/graphql-engine:v2.44.0
+    container_name: online-store-hasura
+    restart: always
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://admin:admin@postgres:5432/online_store_db
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_ADMIN_SECRET: admin123
+      HASURA_GRAPHQL_DEV_MODE: "true"
+
+volumes:
+  postgres_data:

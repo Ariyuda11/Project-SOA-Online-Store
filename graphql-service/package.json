@@ -1,0 +1,13 @@
+{
+  "name": "graphql-service",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@apollo/server": "^4.12.2",
+    "axios": "^1.17.0",
+    "graphql": "^16.11.0"
+  }
+}
